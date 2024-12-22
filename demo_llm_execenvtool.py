@@ -1,6 +1,6 @@
 from llm_execenvtool import LLMExecEnvTool
 
-llm_exec = LLMExecEnvTool()
+llm_exec = LLMExecEnvTool(imports = ['joke_cat_dog'])
 
 def main():
     # Get user input
