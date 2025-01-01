@@ -38,7 +38,13 @@ class ExecutionEnvironment:
     def get_environment(self):
         """Devuelve el entorno actual de variables."""
         tracer.debug("Obteniendo el entorno actual.")
-        return self.environment
+
+        out = dict()
+        for var in self.environment:
+            out[var] = self.format_variable(var)
+
+        # return self.environment
+        return out
 
     def format_variable_old(self, var_name: str):
         """
@@ -214,8 +220,8 @@ class ExecutionEnvironment:
             variable = self.environment[var_name]
             size_in_bytes = sys.getsizeof(variable)
 
-            # Umbral para truncar objetos grandes (por ejemplo, 1 MB)
-            max_size = 1 * 1024 * 1024
+            # Umbral para truncar objetos grandes (por ejemplo, 1 KB)
+            max_size = 1 * 1024
 
             if isinstance(variable, pd.DataFrame):
                 # Convertir DataFrame a JSON-friendly si es demasiado grande

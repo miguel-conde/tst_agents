@@ -1,4 +1,5 @@
 from typing import List, Optional, Iterator, Callable, Any
+from tracer import tracer
 
 class CircularMemory:
     """
@@ -192,7 +193,8 @@ class CircularMemoryWithBuffer:
             self.buffer.add(overwritten_element)
         if len(self.buffer) == self.buffer_size:
             summarized = self.summarize_fn(self.buffer.get(), *self.summarize_fn_args)
-            print(f"Buffer is full: {self.buffer.get()} - SUMMARIZING -> {summarized}")
+            # print(f"Buffer is full: {self.buffer.get()} - SUMMARIZING -> {summarized}")
+            tracer.debug(f"Buffer is full: {self.buffer.get()} - SUMMARIZING -> {summarized}")
             self.buffer.clear()
         return overwritten_element
 
@@ -252,28 +254,41 @@ class CircularMemoryWithBuffer:
 
 # Example usage
 if __name__ == '__main__':
-    from circular_memory_old import CircularMemoryWithBuffer
+    from circular_memory import CircularMemoryWithBuffer
 
     def summmary_fn_lt(buffer, last_memory):
-        summarized = "-".join([str(x) for x in buffer])
+        summarized = "/".join(str(x) for x in [buffer[0].split(',')[0], buffer[-1].split(',')[-1]])
         last_memory[0] = last_memory[0] + "-" + summarized
         return last_memory
 
     def summmary_fn_mt(buffer, long_term_memory):
-        summarized =  "-".join([str(x) for x in buffer])
+        summarized = ",".join(str(x) for x in [buffer[0].split('-')[0], buffer[-1].split('-')[-1]])
         long_term_memory.add(summarized)
         return summarized
 
     def summmary_fn_st(buffer, mid_term_memory):
-        summarized =  "-".join([str(x) for x in buffer])
+        summarized = "-".join(str(x) for x in [buffer[0], buffer[-1]])
         mid_term_memory.add(summarized)
         return summarized
 
     last_memory = [""]
-    long_term_memory = CircularMemoryWithBuffer(5, 5, summarize_fn=summmary_fn_lt, summarize_fn_args=[last_memory])
-    mid_term_memory = CircularMemoryWithBuffer(5, 5, summarize_fn=summmary_fn_mt, summarize_fn_args=[long_term_memory])
-    short_term_memory = CircularMemoryWithBuffer(5, 5, summarize_fn=summmary_fn_st, summarize_fn_args=[mid_term_memory])
+    long_term_memory  = CircularMemoryWithBuffer( 5, 5, summarize_fn=summmary_fn_lt, summarize_fn_args=[last_memory])
+    mid_term_memory   = CircularMemoryWithBuffer( 5, 5, summarize_fn=summmary_fn_mt, summarize_fn_args=[long_term_memory])
+    short_term_memory = CircularMemoryWithBuffer(10, 5, summarize_fn=summmary_fn_st, summarize_fn_args=[mid_term_memory])
 
     for i in range(1000):
         short_term_memory.add(i)
         print(short_term_memory)
+
+    print("\n\nFINAL MEMORY:\n============\n")
+
+    res = "\n".join(
+    [
+        "Last:       " + last_memory[0][1:].replace("-", ",").replace("/", "-"),
+        "Long Term:  " + ",".join([x.replace(",", "-") for x in long_term_memory.get_all()]),
+        "Mid Term:   " + ",".join([x.replace(",", "-") for x in mid_term_memory.get_all()]),
+        "Short Term: " + ",".join([str(x).replace(",", "-") for x in short_term_memory.get_all()])
+    ]
+    )
+
+    print(res)

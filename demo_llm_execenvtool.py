@@ -1,6 +1,9 @@
 from llm_execenvtool import LLMExecEnvTool
+from memory import ChatMemory
 
-llm_exec = LLMExecEnvTool(imports = ['joke_cat_dog'])
+msgs_memory = ChatMemory(word_limit=20000, n_recent=10)
+
+llm_exec = LLMExecEnvTool(memory=msgs_memory, imports = ['joke_cat_dog'])
 
 def main():
     # Get user input

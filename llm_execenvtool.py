@@ -4,6 +4,7 @@ import json
 from execenvtool import ExecutionEnvironment
 from extract_pydocs import extract_documentation
 import joke_cat_dog
+from memory import ChatMemory
 
 
 tools = [ {
@@ -76,26 +77,53 @@ Cuando se produzcan errores ejecutar el código:
 
 class LLMExecEnvTool:
     
-    def __init__(self, imports = []):
-         self._tools = tools
-         self._env = ExecutionEnvironment()
+    def __init__(self, memory: ChatMemory, imports = []):
+        self._tools = tools
+        self._env = ExecutionEnvironment()
          
-         self._client = openai.OpenAI()
+        self._client = openai.OpenAI()
          
-         self._sys_prompt = sys_prompt
+        self._sys_prompt = sys_prompt
          
-         for x in imports:
+        for x in imports:
             # exec(f"import {x}")
             self._env.pyExec(f"import {x}")
             self._sys_prompt += f"\n\nEn el módulo `{x}`, que ya está importado, tienes estas funciones que deberás usar siempre que sea pertinente:{extract_documentation(f'{x}.py')}"
 
-         self._messages = [
-             {"role": "system", "content": self._sys_prompt},
-             ]
+        # self._messages = {"role": "system", "content": self._sys_prompt}
+
+        self._memory = memory
+
+        self._memory.add_message(
+            {
+                "role": "developer", 
+                "content": self._sys_prompt
+            },)
+
+        # self._messages = [
+        #     {
+        #         "role": "developer", 
+        #         "content": [
+        #             {
+        #                 'type': "text",
+        #                 'text': self._sys_prompt
+        #             }
+        #         ]
+        #     },
+        # ]
+        # self._messages = []
+         
+        # _ = self._client.chat.completions.create(
+        #     model="gpt-4o",
+        #     messages=[
+        #         {"role": "system", "content": self._sys_prompt},
+        #         ],
+        #         )
          
     def _process_response(self, response):
         response_message = response.choices[0].message
-        self._messages.append(response_message)
+        # self._messages.append(response_message)
+        self._memory.add_message(response_message)
     
         if dict(response_message).get('tool_calls'):
 
@@ -114,10 +142,15 @@ class LLMExecEnvTool:
                     "extract_documentation": extract_documentation,
                 }
 
-                fuction_to_call = available_functions[function_called]
-                response_message = json.dumps(fuction_to_call(*list(function_args .values())))
+                function_to_call = available_functions[function_called]
+                response_message = json.dumps(function_to_call(*list(function_args.values())))
 
-                self._messages.append({"tool_call_id": tool_call.id,
+                # self._messages.append({"tool_call_id": tool_call.id,
+                #                        "role": "tool",
+                #                        "name": function_called,
+                #                        "content": response_message,
+                #                         })
+                self._memory.add_message({"tool_call_id": tool_call.id,
                                        "role": "tool",
                                        "name": function_called,
                                        "content": response_message,
@@ -125,7 +158,8 @@ class LLMExecEnvTool:
 
             response = self._client.chat.completions.create(
                 model="gpt-4o",
-                messages=self._messages,
+                # messages=self._messages,
+                messages=self._memory.get_memory(),
                 tools=tools,
                 tool_choice="auto"
                 )
@@ -133,23 +167,28 @@ class LLMExecEnvTool:
             response = self._process_response(response)
 
         else:
-            response_message = response_message.content
-            self._messages.append({"role": "assistant",
-                                    "content": response_message,
-                                     })
+            # response_message = response_message.content
+            # self._messages.append({"role": "assistant",
+            #                         "content": response_message,
+            #                          })
+            # self._memory.add_message(response_message)
+            pass
 
         return response
     
     def answer_user_request(self, user_input):
-        self._messages.append({"role": "user", "content": user_input})
+        # self._messages.append({"role": "user", "content": user_input})
+        self._memory.add_message({"role": "user", "content": user_input})
         
         response = self._client.chat.completions.create(
             model="gpt-4o",
-            messages=self._messages,
+            # messages=self._messages,
+            messages=self._memory.get_memory(),
             tools=self._tools,
             tool_choice="auto"
             )
         
         _ = self._process_response(response)
         
-        return self._messages[-1]['content']
+        # return self._messages[-1]['content']
+        return self._memory.get_memory()[-1].content
