@@ -113,12 +113,13 @@ class ChatGPTRequester:
         tracer.error("Failed after maximum retries.")
         return None
 
-    def request(self, messages: List[Union[ChatCompletionMessage, ConversationMessage]]) -> ChatCompletionMessage:
+    def request(self, messages: List[Union[ChatCompletionMessage, ConversationMessage]], **kwargs) -> ChatCompletionMessage:
         """
         Make a request to the ChatGPT model and get a response.
 
         Args:
             messages (List[]): A list of messages to send to the ChatGPT model. Pueden ser ChatCompletionMessage o ConversationMessage
+            **kwargs: Additional keyword arguments to pass to the OpenAI API.
 
         Returns:
             str: The response from the ChatGPT model.
@@ -128,6 +129,7 @@ class ChatGPTRequester:
                 model=self._model,
                 messages=messages, 
                 temperature=self._temperature,
+                **kwargs
             )
 
         response = self._retry_on_failure(call_openai)

@@ -224,6 +224,13 @@ class CircularMemoryWithBuffer:
             List[Any]: All elements from memory and buffer, ordered by age.
         """
         return self.buffer.get() + self.memory.get()
+    
+    def clear(self) -> None:
+        """
+        Clears all elements from the primary memory and buffer.
+        """
+        self.memory.clear()
+        self.buffer.clear()
 
     def __str__(self) -> str:
         """

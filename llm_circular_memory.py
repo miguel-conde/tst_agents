@@ -1,6 +1,6 @@
 from typing import List, Dict, Callable, Optional, Union
 # from pydantic import BaseModel
-from openai import OpenAI
+# from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage
 from circular_memory import CircularMemoryWithBuffer
 from llm_handler import ConversationMessage, ChatGPTRequester
@@ -40,7 +40,8 @@ class ChatCircularMemory:
 
     def __init__(
         self, 
-        sys_prompt: str = "Eres un asistente amable. Te llamas Aya y eres tailandesa. Tienes 49 años.",
+        sys_prompt: str = None,
+        llm_handler: ChatGPTRequester = None,
         short_term_memory_size: int = 10,
         short_term_buffer_size: int = 5,
         mid_term_memory_size: int = 5,
@@ -56,12 +57,15 @@ class ChatCircularMemory:
             mid_term_memory_size (int): The size of the mid-term memory.
             mid_term_buffer_size (int): The size of the mid-term buffer.
         """
-        self.sys_prompt = sys_prompt
+        if sys_prompt is None:
+            self.sys_prompt = "Eres un asistente amable. Tu nombre es Aya y tienes 49 años."
+        else:
+            self.sys_prompt = sys_prompt
         self.short_term_memory_size = short_term_memory_size
         self.short_term_buffer_size = short_term_buffer_size
         self.mid_term_memory_size = mid_term_memory_size
         self.mid_term_buffer_size = mid_term_buffer_size
-        self.long_term_memory: List[ConversationMessage] = [ConversationMessage(role="system", content=sys_prompt)]
+        self.long_term_memory: List[ConversationMessage] = [ConversationMessage(role="system", content=self.sys_prompt)]
         self.mid_term_memory = CircularMemoryWithBuffer(
             size = mid_term_memory_size, 
             buffer_size=mid_term_buffer_size, 
@@ -75,7 +79,28 @@ class ChatCircularMemory:
             summarize_fn_args=[self.mid_term_memory],
             )
         # self.client = OpenAI()
-        self.llm_handler = ChatGPTRequester()
+        if llm_handler is None:
+            self.llm_handler = ChatGPTRequester()
+        else:
+            self.llm_handler = llm_handler
+            
+    def set_sys_prompt(self, sys_prompt: str) -> None:
+        """
+        Sets the system prompt for the chatbot.
+
+        Args:
+            sys_prompt (str): The system prompt to set.
+        """
+        self.sys_prompt = sys_prompt
+        
+        # Si self.long_term_memory tiene un solo elemento, lo actualizamos
+        if len(self.long_term_memory) == 1:
+            self.long_term_memory[0].content = sys_prompt
+        # Si no, lo añadimos
+        else:
+            self.long_term_memory = [ConversationMessage(role="system", content=sys_prompt)]
+        
+        
 
     def add_message(self, message: ConversationMessage) -> None:
         """
@@ -179,9 +204,10 @@ class ChatCircularMemory:
 
 # Usage
 if __name__ == '__main__':
-    msgs_memory = ChatCircularMemory()
+    llm_handler = ChatGPTRequester()
+    msgs_memory = ChatCircularMemory(llm_handler=llm_handler)
 
-    client = OpenAI()
+    # client = OpenAI()
 
     # Get user input
     user_input = input("You: ")
@@ -191,13 +217,23 @@ if __name__ == '__main__':
 
         msgs_memory.add_message(ConversationMessage(role="user", content=user_input))
 
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=msgs_memory.get_all(),
-        )
+        # response = client.chat.completions.create(
+        #     model="gpt-4o",
+        #     messages=msgs_memory.get_all(),
+        # )
 
-        msgs_memory.add_message(ConversationMessage(role="system", content=response.choices[0].message.content))
+        # msgs_memory.add_message(response.choices[0].message)
+        
+        response = llm_handler.request(msgs_memory.get_all())
+        msgs_memory.add_message(response)
 
-        print(f"AI:  {response.choices[0].message.content}")
+        # print(f"AI:  {response.choices[0].message.content}")
+        print(f"AI:  {response.content}")
 
         user_input = input("You: ")
+        
+    tokens_prompt = llm_handler.prompt_tokens
+    tokens_completion = llm_handler.completion_tokens
+    tokens_total = llm_handler.total_tokens
+    
+    print(f"Tokens used: {tokens_total} (Prompt: {tokens_prompt}, Completion: {tokens_completion})")
