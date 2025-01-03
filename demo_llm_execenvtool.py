@@ -18,7 +18,7 @@ def main():
         
         response = llm_exec.answer_user_request(user_input)
         
-        print(response)
+        print(f"IA: {response}")
         
         user_input = input("You: ")
         
