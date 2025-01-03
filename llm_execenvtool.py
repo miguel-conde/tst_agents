@@ -1,12 +1,13 @@
-import openai
-import json
-
 from execenvtool import ExecutionEnvironment
 from extract_pydocs import extract_documentation
-import joke_cat_dog
+
 # from memory import ChatMemory
 from llm_circular_memory import ChatCircularMemory
 from llm_handler import ChatGPTRequester
+
+from agent import BaseAgent
+
+from tracer import tracer
 
 
 tools = [ {
@@ -77,129 +78,87 @@ Cuando se produzcan errores ejecutar el código:
 
 """
 
-class LLMExecEnvTool:
+class LLMExecEnvTool(BaseAgent):
+    """
+    A tool for managing interactions between a large language model (LLM) and an execution environment.
+
+    This class integrates tools for executing Python code, managing memory, and processing
+    LLM responses with tool calls. It dynamically imports specified modules and enriches
+    the LLM's prompt with relevant documentation.
+    """
     
-    def __init__(self, llm_handler: ChatGPTRequester, memory: ChatCircularMemory, imports = []):
-        self._tools = tools
-        self._env = ExecutionEnvironment()
-         
-        self._llm_handler = llm_handler
-         
-        self._sys_prompt = sys_prompt
-         
-        for x in imports:
-            # exec(f"import {x}")
-            self._env.pyExec(f"import {x}")
-            self._sys_prompt += f"\n\nEn el módulo `{x}`, que ya está importado, tienes estas funciones que deberás usar siempre que sea pertinente:{extract_documentation(f'{x}.py')}"
+    def __init__(self, llm_handler: ChatGPTRequester, memory: ChatCircularMemory, imports: list[str] = []):
+        """
+        Initializes the LLM Execution Environment Tool.
 
-        # self._messages = {"role": "system", "content": self._sys_prompt}
-
-        self._memory = memory
-        # self._memory.sys_prompt = self._sys_prompt # 
-        # Sustituir el sys_prompt que viene de origen en memory, ¿Implementar un método resetear?
+        Args:
+            llm_handler (ChatGPTRequester): Handler for interacting with the LLM.
+            memory (ChatCircularMemory): Memory for storing interactions.
+            imports (list[str], optional): List of module names to import dynamically. Defaults to [].
+        """
+        super().__init__(llm_handler, memory)
+        self.set_sys_prompt(sys_prompt)
+        self.set_tools_list(tools)
         self._memory.set_sys_prompt(self._sys_prompt)
+        self._memory.add_message({"role": "developer", "content": self._sys_prompt})
+        
+        self._env = ExecutionEnvironment()
 
-        self._memory.add_message(
-            {
-                "role": "developer", 
-                "content": self._sys_prompt
-            },)
+        # Import modules dynamically
+        import importlib
+        for module_name in imports:
+            try:
+                importlib.import_module(module_name)
+                self._env.pyExec(f"import {module_name}")
+                self._sys_prompt += f"\n\nEn el módulo `{module_name}`, ya importado, tienes estas funciones:\n{extract_documentation(f'{module_name}.py')}"
+            except ModuleNotFoundError as e:
+                tracer.error(f"Module `{module_name}` not found: {str(e)}")
+                raise ImportError(f"Error importing module `{module_name}`: {str(e)}")
 
-        # self._messages = [
-        #     {
-        #         "role": "developer", 
-        #         "content": [
-        #             {
-        #                 'type': "text",
-        #                 'text': self._sys_prompt
-        #             }
-        #         ]
-        #     },
-        # ]
-        # self._messages = []
-         
-        # _ = self._client.chat.completions.create(
-        #     model="gpt-4o",
-        #     messages=[
-        #         {"role": "system", "content": self._sys_prompt},
-        #         ],
-        #         )
-         
-    def _process_response(self, response):
-        # response_message = response.choices[0].message
-        # response_message = response
-        # self._messages.append(response_message)
-        # self._memory.add_message(response_message)
+        self._available_functions = {
+            "pyExec": self._env.pyExec,
+            "format_variable": self._env.format_variable,
+            "get_environment": self._env.get_environment,
+            "extract_documentation": extract_documentation,
+        }
+
+
+# Usage
+
+def main():
     
-        if dict(response).get('tool_calls'):
+    from llm_execenvtool import LLMExecEnvTool
+    from llm_circular_memory import ChatCircularMemory
+    from llm_handler import ChatGPTRequester
 
-            for tool_call in response.tool_calls:
-                # Which function call was invoked
-                function_called = tool_call.function.name
+    # msgs_memory = ChatMemory(word_limit=20000, n_recent=10)
+    llm_handler = ChatGPTRequester()
+    msgs_memory = ChatCircularMemory(llm_handler=llm_handler)
 
-                # Extracting the arguments
-                function_args  = json.loads(tool_call.function.arguments)
+    llm_exec = LLMExecEnvTool(llm_handler = llm_handler, memory=msgs_memory, imports = ['joke_cat_dog'])
 
-                # Function names
-                available_functions = {
-                    "pyExec": self._env.pyExec,
-                    "format_variable": self._env.format_variable,
-                    "get_environment": self._env.get_environment,
-                    "extract_documentation": extract_documentation,
-                }
-
-                function_to_call = available_functions[function_called]
-                response_message = json.dumps(function_to_call(*list(function_args.values())))
-
-                # self._messages.append({"tool_call_id": tool_call.id,
-                #                        "role": "tool",
-                #                        "name": function_called,
-                #                        "content": response_message,
-                #                         })
-                tool_response = {
-                    "tool_call_id": tool_call.id,
-                    "role": "tool",
-                    "name": function_called,
-                    "content": response_message,
-                }
-                # self._memory.add_message(tool_response)
-
-            # response = self._client.chat.completions.create(
-            #     model="gpt-4o",
-            #     # messages=self._messages,
-            #     messages=self._memory.get_memory(),
-            #     tools=tools,
-            #     tool_choice="auto"
-            #     )
-            response = self._llm_handler.request(self._memory.get_all() + [response, tool_response], tools=tools, tool_choice="auto")
-
-            response = self._process_response(response)
-
-        else:
-            # response_message = response_message.content
-            # self._messages.append({"role": "assistant",
-            #                         "content": response_message,
-            #                          })
-            # self._memory.add_message(response_message)
-            # pass
-            self._memory.add_message(response)
-
-        return response
+    # Get user input
+    user_input = input("You: ")
     
-    def answer_user_request(self, user_input):
-        # self._messages.append({"role": "user", "content": user_input})
-        self._memory.add_message({"role": "user", "content": user_input})
+    # Loop while user input is not exit nor quit 
+    while user_input.lower() not in ['exit', 'quit']:
         
-        # response = self._client.chat.completions.create(
-        #     model="gpt-4o",
-        #     # messages=self._messages,
-        #     messages=self._memory.get_memory(),
-        #     tools=self._tools,
-        #     tool_choice="auto"
-        #     )
-        response = self._llm_handler.request(self._memory.get_all(), tools=tools, tool_choice="auto")
+        response = llm_exec.answer_user_request(user_input)
         
-        _ = self._process_response(response)
+        print(f"IA: {response}")
         
-        # return self._messages[-1]['content']
-        return self._memory.get_all()[-1].content
+        user_input = input("You: ")
+        
+    tokens_prompt = llm_handler.prompt_tokens
+    tokens_completion = llm_handler.completion_tokens
+    tokens_total = llm_handler.total_tokens
+    
+    print(f"Tokens used: {tokens_total} (Prompt: {tokens_prompt}, Completion: {tokens_completion})")
+
+if __name__ == '__main__':
+       
+    # import environment variables from .env file
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    main()

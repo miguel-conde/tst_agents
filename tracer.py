@@ -1,6 +1,8 @@
 import logging
 import os
 
+from utils import get_env_variable
+
 # Expected Behavior
 # With LOG_LEVEL=INFO, the logger will:
 
@@ -15,7 +17,14 @@ import os
 from dotenv import load_dotenv
 
 # Load .env file
-load_dotenv()
+loaded = load_dotenv(verbose=True)
+
+# print(f"El valor de la variable de entorno LOG_LEVEL es: {get_env_variable('LOG_LVL')}")
+
+# if loaded:
+#     print("Environment variables loaded successfully")
+# else:
+#     print("No environment variables loaded")
 
 def setup_logger():
     """
@@ -25,8 +34,14 @@ def setup_logger():
     logger = logging.getLogger("app_tracer")
 
     # Dynamically set the logging level from the LOG_LEVEL environment variable
-    log_level = os.getenv("LOG_LEVEL", "DEBUG").upper()
-    logger.setLevel(getattr(logging, log_level, logging.DEBUG))  # Default to DEBUG if LOG_LEVEL is not set
+    log_level = os.getenv("LOG_LVL", "DEBUG").upper()
+    if log_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+        logging.warning(f"Invalid log level: {log_level}. Defaulting to DEBUG")
+        log_level = "DEBUG"
+    else: # format to 'logging.LEVEL' to use in the logging module
+        log_level = getattr(logging, log_level, logging.INFO)  # Convert log_level string to int value from logging module. Default to DEBUG if LOG_LEVEL is not set
+ 
+    logger.setLevel(log_level)
 
     # Avoid adding duplicate handlers if logger already exists
     if logger.hasHandlers():
@@ -58,3 +73,12 @@ def setup_logger():
 
 # Global logger instance
 tracer = setup_logger()
+
+
+# Obtén el nivel actual del logger
+log_level = tracer.getEffectiveLevel()
+
+# Convierte el nivel a su representación en texto
+log_level_name = logging.getLevelName(log_level)
+
+tracer.info(f"El nivel de log actual es: {log_level_name}")
