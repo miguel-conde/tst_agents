@@ -30,7 +30,7 @@ class ExecutionEnvironment:
             exec(code, {}, self.environment)
             # return self.environment
             # return {var: self.format_variable(var) for var in self.environment}
-            return [x for x in self.environment]
+            return f"Variables in environment: {[x for x in self.environment]}"
         except Exception as e:
             tracer.error(f"Error al ejecutar el código: {e}")
             return {"error": str(e)}

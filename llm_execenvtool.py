@@ -276,4 +276,9 @@ def main():
     print(f"Tokens used: {tokens_total} (Prompt: {tokens_prompt}, Completion: {tokens_completion})")
 
 if __name__ == '__main__':
+       
+    # import environment variables from .env file
+    from dotenv import load_dotenv
+    load_dotenv()
+    
     main()
