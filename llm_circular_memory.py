@@ -72,10 +72,10 @@ class ChatCircularMemory:
         """
         self.sys_prompt = sys_prompt
         
-        # Si self.long_term_memory tiene un solo elemento, lo actualizamos
-        if len(self.long_term_memory) == 1:
+        # Si self.long_term_memory ya tiene un sys_prompt, lo actualizamos
+        if len(self.long_term_memory) > 0:
             self.long_term_memory[0].content = sys_prompt
-        # Si no, lo añadimos
+        # Si no, lo añadimos como primer elemento
         else:
             self.long_term_memory = [ConversationMessage(role="system", content=sys_prompt)]
         
