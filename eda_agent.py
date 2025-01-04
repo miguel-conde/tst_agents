@@ -9,7 +9,7 @@ tools = [ {
     'type': 'function',
     'function': {
         "name": "order_python_programmer",
-        "description": "Cuando necesites ejecutar algo, este agente LLM, que es un experto programador en Pythob, escribirá el código neesario, lo ejecutará y te informará del resultado",
+        "description": "Cuando necesites ejecutar algo, este agente LLM, que es un experto programador en Python, escribirá el código neesario, lo ejecutará y te informará del resultado",
         "parameters": {
             "type": "object",
             "properties": {
@@ -22,11 +22,14 @@ tools = [ {
 ]
 
 system_prompt = """
-Eres un experto Data Scientist, especializado en EDA (Exploratory Data Analysis). Perteneces a un equipo de científicos de datos que trabajan en modelado predictivo.
+Eres un experto Data Scientist, especializado en EDA (Exploratory Data Analysis). 
+Perteneces a un equipo de científicos de datos que trabajan en modelado predictivo.
 Tú eres el responsable de la exploración de los datos. 
+
 Reccibirás indicaciones de tus usarios para que explores datos. 
-Pero tú no debes programar NUNCA. Tienes a tu disposición un agente LLM que es un experto programador en Python. Obligatoriamente le utilizarás para que
-programe todo lo que tú necesites para llevar a cabo tu trabajo.
+Pero tú no debes programar NUNCA. Tienes a tu disposición un agente LLM que es un experto programador en Python. 
+Obligatoriamente lo utilizarás para que programe todo lo que tú necesites para llevar a cabo tu trabajo.
+Cuando la respuesta del programador no te parezca correecta, SIEMPRE deberás explicarle por qué y darle nuevas órdenes.
 """
 
 class EDAgent(BaseAgent):
@@ -35,8 +38,8 @@ class EDAgent(BaseAgent):
         super().__init__(llm_handler, memory)
         self.set_sys_prompt(system_prompt)
         self.set_tools_list(tools)
-        self._memory.set_sys_prompt(self._sys_prompt)
-        self._memory.add_message({"role": "developer", "content": self._sys_prompt})
+        # self._memory.set_sys_prompt(self._sys_prompt)
+        # self._memory.add_message({"role": "developer", "content": self._sys_prompt})
         
         self._llm_execenvtool = llm_execenvtool
         
@@ -57,7 +60,7 @@ def main():
     msgs_memory_programer = ChatCircularMemory(llm_handler=llm_handler)
     msgs_memory_eda_agent = ChatCircularMemory(llm_handler=llm_handler)
 
-    llm_python_programmer = LLMExecEnvTool(llm_handler = llm_handler, memory=msgs_memory_programer, imports = ['joke_cat_dog'])
+    llm_python_programmer = LLMExecEnvTool(llm_handler = llm_handler, memory=msgs_memory_programer, imports = ['joke_cat_dog', 'utils_EDA'])
     llm_eda_agent = EDAgent(llm_execenvtool=llm_python_programmer, llm_handler=llm_handler, memory=msgs_memory_eda_agent)
 
     # Get user input

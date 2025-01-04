@@ -33,12 +33,32 @@ class BaseAgent(ABC):
         
     def set_sys_prompt(self, sys_prompt: str) -> None:
         self._sys_prompt = sys_prompt
+        self._memory.set_sys_prompt(self._sys_prompt)
+
+    def get_sys_prompt(self) -> str:
+        return self._sys_prompt
+
+    def set_memory(self, memory: ChatCircularMemory) -> None:
+        self._memory = memory
+
+    def get_memory(self) -> ChatCircularMemory:
+        return self._memory
         
     def set_tools_list(self, tools_list: List[Dict]) -> None:
         self._tools_list = tools_list
+
+    def get_tools_list(self) -> List[Dict]:
+        if hasattr(self, '_tools_list'):
+            return self._tools_list
+        return None
         
     def set_available_functions(self, available_functions: Dict) -> None:
         self._available_functions = available_functions
+
+    def get_available_functions(self) -> Dict:
+        if hasattr(self, '_available_functions'):
+            return self._available_functions
+        return None
 
     def _process_response(self, response: ChatCompletionMessage) -> ChatCompletionMessage:
         """

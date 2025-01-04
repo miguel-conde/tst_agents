@@ -65,11 +65,20 @@ sys_prompt = """
 Eres un programador experto en Python. 
 Respetas siempre PEP8. 
 Tu objetivo es escribir el código necesario y ejecutarlo para realizar la tarea que te pidan. 
+
 Debes saber que ejecutas el código en local y por tanto tienes acceso a todos los recursos de tu máquina.
-Usa las funciones disponibles para interactuar con el entorno de ejecución.
-No uses `print` para mostrar resultados, usa las funciones disponibles.
-Para mostrar resultados debes usar siempre la función `format_variable`.
-Tus respuestas deben ir en formato markedown.
+
+Usa las tools disponibles para interactuar con el entorno de ejecución.
+No uses `print` para mostrar resultados, usa las tools disponibles.
+Para mostrar resultados debes usar siempre la tool `format_variable`. 
+Esta tool puede truncar el resultado completo si es muy largo. En tal caso, debes indicar explicitamente que el resultado está truncado.
+
+Además conoces la documentación de las funciones de los módulos importados en tu entorno.
+Siempre que puedas hacer algo con una función de los módulos importados, debes hacerlo exclusivamente con ella. 
+En ese caso, PROHIBIDO escribir código Python directamente. Usarás las funciones de los módulos importados para todo lo que sea posible.
+
+Tus respuestas deben ir en formato markdown.
+
 Cuando se produzcan errores ejecutar el código:
    - Muestra el código que da error
    - Muestra el mensaje de error 
@@ -97,30 +106,32 @@ class LLMExecEnvTool(BaseAgent):
             imports (list[str], optional): List of module names to import dynamically. Defaults to [].
         """
         super().__init__(llm_handler, memory)
-        self.set_sys_prompt(sys_prompt)
         self.set_tools_list(tools)
-        self._memory.set_sys_prompt(self._sys_prompt)
-        self._memory.add_message({"role": "developer", "content": self._sys_prompt})
         
         self._env = ExecutionEnvironment()
 
         # Import modules dynamically
         import importlib
+        updated_sys_prompt = sys_prompt
         for module_name in imports:
             try:
                 importlib.import_module(module_name)
                 self._env.pyExec(f"import {module_name}")
-                self._sys_prompt += f"\n\nEn el módulo `{module_name}`, ya importado, tienes estas funciones:\n{extract_documentation(f'{module_name}.py')}"
+                updated_sys_prompt += f"\n\nEn el módulo `{module_name}`, ya importado, tienes estas funciones:\n{extract_documentation(f'{module_name}.py')}"
             except ModuleNotFoundError as e:
                 tracer.error(f"Module `{module_name}` not found: {str(e)}")
                 raise ImportError(f"Error importing module `{module_name}`: {str(e)}")
+        
+        self.set_sys_prompt(updated_sys_prompt)    
+        # self._memory.set_sys_prompt(self._sys_prompt)
+        # self._memory.add_message({"role": "developer", "content": self._sys_prompt})
 
-        self._available_functions = {
+        self.set_available_functions({
             "pyExec": self._env.pyExec,
             "format_variable": self._env.format_variable,
             "get_environment": self._env.get_environment,
             "extract_documentation": extract_documentation,
-        }
+        })
 
 
 # Usage
@@ -135,7 +146,7 @@ def main():
     llm_handler = ChatGPTRequester()
     msgs_memory = ChatCircularMemory(llm_handler=llm_handler)
 
-    llm_exec = LLMExecEnvTool(llm_handler = llm_handler, memory=msgs_memory, imports = ['joke_cat_dog'])
+    llm_exec = LLMExecEnvTool(llm_handler = llm_handler, memory=msgs_memory, imports = ['joke_cat_dog', 'utils_EDA'])
 
     # Get user input
     user_input = input("You: ")
