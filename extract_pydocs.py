@@ -12,7 +12,7 @@ def extract_documentation(file_path: str) -> Dict[str, Any]:
         Dict[str, Any]: Un diccionario con las docstrings organizadas por tipo (module, classes, functions).
     """
     documentation = {
-        "module": "",
+        "module doc": "",
         "classes": {},
         "functions": {}
     }

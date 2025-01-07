@@ -7,14 +7,17 @@ import matplotlib.pyplot as plt
 import base64
 from typing import List, Dict, Any
 
+from langchain_core.tools import tool
+
 from tracer import tracer
+
 
 class ExecutionEnvironment:
     def __init__(self):
         """Inicializa el entorno de ejecución con un diccionario vacío."""
         self.environment = {}
-
-    def pyExec(self, code: str):
+    
+    def pyExec(self, code: str) -> str:
         """
         Ejecuta el código Python dado utilizando el entorno interno.
         
@@ -22,7 +25,7 @@ class ExecutionEnvironment:
         code (str): Código Python a ejecutar.
 
         Returns:
-        dict: Diccionario con las variables actualizadas tras la ejecución.
+        str: Mensaje con las variables en el entorno tras la ejecución.
         """
         try:
             # Ejecutar el código usando el entorno interno
